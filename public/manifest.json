@@ -1,0 +1,27 @@
+{
+  "name": "طريقك للجنة",
+  "short_name": "طريقك للجنة",
+  "description": "تطبيق إسلامي شامل: سبحه إلكترونية، أذكار الصباح والمساء، مواقيت الصلاة، تذكير كل ساعة، القرآن الكريم كاملاً مع التفسير الصوتي والقرائي",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#c4a86c",
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "ar",
+  "categories": ["lifestyle", "books", "education"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
