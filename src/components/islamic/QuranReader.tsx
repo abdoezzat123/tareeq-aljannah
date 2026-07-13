@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Loader2, Play, Pause, SkipBack, SkipForward, BookOpen, ChevronLeft, Volume2 } from "lucide-react";
+import { Search, Loader2, Play, Pause, SkipBack, SkipForward, BookOpen, ChevronLeft, Volume2, Bookmark, MapPin, X } from "lucide-react";
 import { surahs, qaris, Surah } from "@/lib/quran-data";
 import { fetchSurah, fetchAyahGlobalNumbers, Ayah, SurahWithAyahs } from "@/lib/quran-api";
 import { getSettings, saveSettings } from "@/lib/storage";
@@ -16,6 +16,40 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// واجهة موضع القراءة المحفوظ
+interface ReadingPosition {
+  surahNumber: number;
+  surahName: string;
+  ayahNumber: number; // رقم الآية في السورة (1-based)
+  ayahIndex: number; // الـ index في الـ array (0-based)
+  timestamp: number;
+}
+
+// قراءة الموضع المحفوظ من localStorage
+const getSavedPosition = (): ReadingPosition | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const data = localStorage.getItem("tareeq-islam_reading-position");
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+};
+
+// حفظ الموضع
+const saveReadingPosition = (pos: ReadingPosition) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("tareeq-islam_reading-position", JSON.stringify(pos));
+  } catch {}
+};
+
+// حذف الموضع المحفوظ
+const clearReadingPosition = () => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("tareeq-islam_reading-position");
+};
+
 export function QuranReader() {
   const [view, setView] = useState<"list" | "surah">("list");
   const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
@@ -26,18 +60,39 @@ export function QuranReader() {
   const [globalAyahNumbers, setGlobalAyahNumbers] = useState<number[]>([]);
   const [currentAyah, setCurrentAyah] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [savedPosition, setSavedPosition] = useState<ReadingPosition | null>(null);
+  const [resumeTarget, setResumeTarget] = useState<number>(-1); // الـ index اللي نكمل منه
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const settings = getSettings();
     setQari(settings.qari);
+    setSavedPosition(getSavedPosition());
   }, []);
 
-  const loadSurah = async (surah: Surah) => {
+  // حفظ الموضع عند تغيير الآية الحالية أو تشغيلها
+  const savePosition = useCallback((surah: Surah, ayahIndex: number) => {
+    if (!surahData || ayahIndex < 0) return;
+    const ayahNumber = surahData.ayahs[ayahIndex]?.numberInSurah;
+    if (!ayahNumber) return;
+    const pos: ReadingPosition = {
+      surahNumber: surah.number,
+      surahName: surah.name,
+      ayahNumber,
+      ayahIndex,
+      timestamp: Date.now(),
+    };
+    saveReadingPosition(pos);
+    setSavedPosition(pos);
+  }, [surahData]);
+
+  const loadSurah = async (surah: Surah, resumeFromIndex = -1) => {
     setLoading(true);
     setSelectedSurah(surah);
     setView("surah");
-    setCurrentAyah(0);
+    const startIndex = resumeFromIndex >= 0 ? resumeFromIndex : 0;
+    setCurrentAyah(startIndex);
+    setResumeTarget(resumeFromIndex);
     setIsPlaying(false);
     try {
       const [data, globalNums] = await Promise.all([
@@ -47,11 +102,40 @@ export function QuranReader() {
       setSurahData(data);
       setGlobalAyahNumbers(globalNums);
       saveSettings({ lastReadSurah: surah.number });
-    } catch (e) {
+
+      // لو في resume، نمرّر للآية
+      if (resumeFromIndex >= 0) {
+        setTimeout(() => {
+          const ayahElement = document.getElementById(`ayah-${resumeFromIndex}`);
+          if (ayahElement) {
+            ayahElement.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          toast.success(`متابعة من: ${surah.name} - آية ${data.ayahs[resumeFromIndex]?.numberInSurah}`);
+        }, 500);
+      }
+    } catch {
       toast.error("فشل في جلب السورة. تحقق من الاتصال بالإنترنت");
     } finally {
       setLoading(false);
     }
+  };
+
+  // متابعة من آخر موضع
+  const resumeReading = async () => {
+    if (!savedPosition) return;
+    const surah = surahs.find((s) => s.number === savedPosition.surahNumber);
+    if (!surah) {
+      toast.error("تعذّر العثور على السورة");
+      return;
+    }
+    await loadSurah(surah, savedPosition.ayahIndex);
+  };
+
+  // مسح الموضع المحفوظ
+  const clearPosition = () => {
+    clearReadingPosition();
+    setSavedPosition(null);
+    toast.info("تم مسح الموضع المحفوظ");
   };
 
   const playAyah = useCallback(async (ayahIndex: number) => {
@@ -69,6 +153,10 @@ export function QuranReader() {
     audio.onplay = () => {
       setIsPlaying(true);
       setCurrentAyah(ayahIndex);
+      // حفظ الموضع عند كل آية بتشتغل
+      if (selectedSurah) {
+        savePosition(selectedSurah, ayahIndex);
+      }
     };
 
     audio.onended = () => {
@@ -95,7 +183,7 @@ export function QuranReader() {
         ayahElement.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     } catch {}
-  }, [surahData, globalAyahNumbers, qari]);
+  }, [surahData, globalAyahNumbers, qari, selectedSurah, savePosition]);
 
   const togglePlay = () => {
     if (!surahData) return;
