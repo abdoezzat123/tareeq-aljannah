@@ -7,22 +7,32 @@ export function ServiceWorkerRegister() {
     if ("serviceWorker" in navigator) {
       const registerSW = async () => {
         try {
+          // تسجيل الـ SW الجديد
           const registration = await navigator.serviceWorker.register("/sw.js", {
             scope: "/",
             updateViaCache: "none",
           });
 
-          if (registration.waiting) {
-            // يوجد تحديث جديد
-            registration.waiting.postMessage({ type: "SKIP_WAITING" });
-          }
-
-          navigator.serviceWorker.addEventListener("controllerchange", () => {
-            // تم تحديث الـ SW، نعمل reload
-            window.location.reload();
+          // فحص التحديثات
+          registration.addEventListener("updatefound", () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener("statechange", () => {
+                if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                  // يوجد تحديث جديد - فعّله فوراً
+                  newWorker.postMessage({ type: "SKIP_WAITING" });
+                }
+              });
+            }
           });
 
-          console.log("[PWA] Service Worker registered successfully");
+          // التحكم التلقائي في التحديثات
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            // تم تحديث الـ SW
+            console.log("[PWA] Service Worker updated");
+          });
+
+          console.log("[PWA] Service Worker registered:", registration.scope);
         } catch (err) {
           console.error("[PWA] SW registration failed:", err);
         }
@@ -35,11 +45,6 @@ export function ServiceWorkerRegister() {
         window.addEventListener("load", registerSW);
         return () => window.removeEventListener("load", registerSW);
       }
-    }
-
-    // طلب إذن الإشعارات تلقائياً
-    if ("Notification" in window && Notification.permission === "default") {
-      // نطلب الإذن بعد تفاعل المستخدم (مش تلقائي عشان ما نزعجوش)
     }
   }, []);
 

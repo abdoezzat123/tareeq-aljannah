@@ -35,24 +35,34 @@ const isTasbihCompleted = (t: TasbihItem): boolean => {
 
 export function TasbihCounter() {
   const [selectedTasbih, setSelectedTasbih] = useState<TasbihItem>(tasbeehat[0]);
-  const [count, setCount] = useState(() => getInitialCount(tasbeehat[0].id));
-  const [round, setRound] = useState(() => Math.floor(getInitialCount(tasbeehat[0].id) / tasbeehat[0].target));
+  // نبدأ بـ 0 ونحدث من localStorage بعد الـ mount (عشان نتجنب hydration mismatch)
+  const [count, setCount] = useState(0);
+  const [round, setRound] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [isPressed, setIsPressed] = useState(false);
   const [showStats, setShowStats] = useState(false);
-  const [dailyGoal, setDailyGoal] = useState(getInitialDailyGoal);
-  // نسخة محدثة من قائمة التسابيح للحالة المكتملة
-  const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
+  const [dailyGoal, setDailyGoal] = useState(1000);
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  // تحميل البيانات من localStorage بعد الـ mount
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCount(getInitialCount(selectedTasbih.id));
+     
+    setRound(Math.floor(getInitialCount(selectedTasbih.id) / selectedTasbih.target));
+     
+    setDailyGoal(getInitialDailyGoal());
+    // تحديث قائمة التسابيح المكتملة
     const set = new Set<string>();
     tasbeehat.forEach((t) => {
       if (isTasbihCompleted(t)) set.add(t.id);
     });
-    return set;
-  });
-
-  const audioContextRef = useRef<AudioContext | null>(null);
+     
+    setCompletedIds(set);
+  }, []);
 
   // عند تغيير التسبيح، تحديث العدّاد من التخزين
   const changeTasbih = (tasbih: TasbihItem) => {

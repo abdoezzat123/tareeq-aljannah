@@ -41,7 +41,9 @@ export function TafsirView() {
 
   useEffect(() => {
     const settings = getSettings();
+     
     setTafsir(settings.tafsir as "saadi" | "muyassar" | "ibnkathir");
+     
     setQari(settings.qari);
   }, []);
 

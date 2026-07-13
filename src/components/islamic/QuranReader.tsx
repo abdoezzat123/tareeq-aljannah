@@ -66,7 +66,9 @@ export function QuranReader() {
 
   useEffect(() => {
     const settings = getSettings();
+     
     setQari(settings.qari);
+     
     setSavedPosition(getSavedPosition());
   }, []);
 

@@ -1,31 +1,27 @@
 // Service Worker - طريقك للجنة
-// يدعم الاشتغال بدون إنترنت (offline mode)
+// يدعم الاشتغال بدون إنترنت (offline mode) - لكن لا يتدخل في الصفحات HTML
 
-const CACHE_NAME = "tareeq-islam-v1";
-const STATIC_CACHE = "tareeq-static-v1";
-const AUDIO_CACHE = "tareeq-audio-v1";
+const CACHE_NAME = "tareeq-islam-v2";
+const STATIC_CACHE = "tareeq-static-v2";
+const AUDIO_CACHE = "tareeq-audio-v2";
 
-// الملفات الأساسية للتخزين (تشتغل بدون إنترنت)
+// الملفات الثابتة للتخزين (تشتغل بدون إنترنت)
 const STATIC_ASSETS = [
-  "/",
   "/manifest.json",
   "/icon-192.png",
   "/icon-512.png",
   "/icon-72.png",
   "/icon-96.png",
   "/icon-144.png",
+  "/sw.js",
 ];
 
 // تثبيت Service Worker
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installing...");
+  console.log("[SW] Installing v2...");
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.log("[SW] Cache error:", err);
-        // نتجاهل الأخطاء ونكمل
-        return Promise.resolve();
-      });
+      return cache.addAll(STATIC_ASSETS).catch(() => Promise.resolve());
     })
   );
   self.skipWaiting();
@@ -33,12 +29,12 @@ self.addEventListener("install", (event) => {
 
 // تفعيل Service Worker
 self.addEventListener("activate", (event) => {
-  console.log("[SW] Activating...");
+  console.log("[SW] Activating v2...");
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== STATIC_CACHE && name !== AUDIO_CACHE && name !== CACHE_NAME)
+          .filter((name) => !name.endsWith("-v2"))
           .map((name) => caches.delete(name))
       );
     })
@@ -47,10 +43,9 @@ self.addEventListener("activate", (event) => {
 });
 
 // استراتيجية الكاش:
-// - الملفات الثابتة: Cache First (الكاش أولاً، ثم الشبكة)
-// - API: Network First (الشبكة أولاً، ثم الكاش)
-// - الصوت: Cache First (لأنه كبير وثابت)
-// - الصفحات: Network First مع fallback للكاش
+// - HTML pages: Network only (NO caching) - عشان localStorage يشتغل صح
+// - Static assets: Cache first
+// - Audio: Cache first
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
@@ -59,8 +54,9 @@ self.addEventListener("fetch", (event) => {
   // تجاهل الطلبات غير GET
   if (request.method !== "GET") return;
 
-  // تجاهل طلبات Next.js Dev
+  // تجاهل طلبات Next.js Dev/HMR
   if (url.pathname.startsWith("/_next/webpack-hmr")) return;
+  if (url.pathname.includes("hot-update")) return;
 
   // ملفات الصوت من CDN الإسلامي (cache first)
   if (url.hostname === "cdn.islamic.network" && url.pathname.includes("/audio/")) {
@@ -68,46 +64,52 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ملفات الصوت من كاش التطبيق (audio-cache)
+  // ملفات الصوت من كاش التطبيق
   if (url.pathname.startsWith("/audio-cache/")) {
     event.respondWith(cacheFirst(request, AUDIO_CACHE));
     return;
   }
 
-  // API للنص القرآني والتفسير (network first مع fallback للكاش)
+  // API للقرآن والتفسير (network first مع fallback)
   if (url.hostname === "api.alquran.cloud") {
     event.respondWith(networkFirst(request, CACHE_NAME));
     return;
   }
 
-  // API لمواقيت الصلاة (network first)
+  // API لمواقيت الصلاة
   if (url.hostname === "api.aladhan.com") {
     event.respondWith(networkFirst(request, CACHE_NAME));
     return;
   }
 
-  // API الخاص بنا (TTS) - لا نكاشه الطلبات POST
-  if (url.pathname.startsWith("/api/tts") && request.method === "GET") {
-    event.respondWith(networkFirst(request, CACHE_NAME));
+  // ملفات Next.js static (cache first) - هذه الـ JS/CSS chunks
+  if (url.origin === self.location.origin && url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
   }
 
-  // الصفحات والملفات الثابتة
-  if (url.origin === self.location.origin) {
-    // ملفات Next.js static (cache first)
-    if (url.pathname.startsWith("/_next/static/")) {
-      event.respondWith(cacheFirst(request, STATIC_CACHE));
-      return;
-    }
-
-    // الصفحات (network first مع fallback للكاش)
-    event.respondWith(networkFirst(request, CACHE_NAME));
+  // الصور والأيقونات (cache first)
+  if (url.origin === self.location.origin && /\.(png|jpg|jpeg|svg|ico|webp)$/i.test(url.pathname)) {
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
   }
 
-  // أي طلب آخر (try network, fallback to cache)
+  // manifest.json (cache first)
+  if (url.pathname === "/manifest.json") {
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
+    return;
+  }
+
+  // HTML pages و API routes: Network ONLY (لا نكاشها)
+  // هذا مهم جداً عشان localStorage يشتغل بشكل صحيح
+  // والصفحة تكون دائماً محدثة
   event.respondWith(
-    fetch(request).catch(() => caches.match(request))
+    fetch(request).catch(() => {
+      // fallback: محاولة من الكاش لو مفيش نت
+      return caches.match(request).then((cached) => {
+        return cached || new Response("Offline", { status: 503 });
+      });
+    })
   );
 });
 
@@ -125,7 +127,6 @@ async function cacheFirst(request, cacheName) {
     }
     return networkResponse;
   } catch (err) {
-    // لو مفيش كاش ومفيش نت
     return new Response("Offline", { status: 503, statusText: "Offline" });
   }
 }
@@ -140,12 +141,10 @@ async function networkFirst(request, cacheName) {
     }
     return networkResponse;
   } catch (err) {
-    // لو مفيش نت، نرجع للكاش
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;
     }
-    // لو مفيش كاش بردو
     return new Response("Offline - No cache available", {
       status: 503,
       statusText: "Offline",
@@ -162,13 +161,15 @@ self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "CLEAR_CACHE") {
     caches.keys().then((names) => {
       Promise.all(names.map((n) => caches.delete(n))).then(() => {
-        event.ports[0].postMessage({ status: "done" });
+        if (event.ports[0]) {
+          event.ports[0].postMessage({ status: "done" });
+        }
       });
     });
   }
 });
 
-// إشعارات Push (للتذكيرات المستقبلية)
+// إشعارات Push
 self.addEventListener("push", (event) => {
   let data = { title: "طريقك للجنة", body: "تذكير بذكر الله" };
   try {
