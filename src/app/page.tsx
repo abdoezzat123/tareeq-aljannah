@@ -12,6 +12,12 @@ import { requestNotificationPermission, getSettings } from "@/lib/storage";
 
 const getInitialTab = (): TabId => {
   if (typeof window === "undefined") return "home";
+  // دعم للـ shortcuts من الـ manifest
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = urlParams.get("tab") as TabId | null;
+  if (tabParam && ["home", "tasbih", "adhkar", "prayer", "quran", "tafsir"].includes(tabParam)) {
+    return tabParam;
+  }
   return (localStorage.getItem("tareeq-islam_lastTab") as TabId) || "home";
 };
 

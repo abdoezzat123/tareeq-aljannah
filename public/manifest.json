@@ -1,27 +1,118 @@
 {
   "name": "طريقك للجنة",
   "short_name": "طريقك للجنة",
-  "description": "تطبيق إسلامي شامل: سبحه إلكترونية، أذكار الصباح والمساء، مواقيت الصلاة، تذكير كل ساعة، القرآن الكريم كاملاً مع التفسير الصوتي والقرائي",
+  "description": "تطبيق إسلامي شامل: سبحه إلكترونية، أذكار الصباح والمساء، مواقيت الصلاة، تذكير كل ساعة بذكر الله، القرآن الكريم كاملاً مع التفسير الصوتي والقرائي بصوت طبيعي",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
   "background_color": "#0a0a0f",
   "theme_color": "#c4a86c",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "dir": "rtl",
   "lang": "ar",
-  "categories": ["lifestyle", "books", "education"],
+  "categories": ["lifestyle", "books", "education", "religion"],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "enabled": true
+  },
   "icons": [
+    {
+      "src": "/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "السبحة الإلكترونية",
+      "short_name": "السبحة",
+      "description": "تسبيح إلكتروني مع عدادات وأصوات",
+      "url": "/?tab=tasbih",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "أذكار الصباح والمساء",
+      "short_name": "الأذكار",
+      "description": "أذكار الصباح والمساء وأذكار كل ساعة",
+      "url": "/?tab=adhkar",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "مواقيت الصلاة",
+      "short_name": "المواقيت",
+      "description": "مواقيت الصلاة مع عد تنازلي",
+      "url": "/?tab=prayer",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "القرآن الكريم",
+      "short_name": "القرآن",
+      "description": "القرآن الكريم كاملاً مع الاستماع",
+      "url": "/?tab=quran",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "تفسير القرآن",
+      "short_name": "التفسير",
+      "description": "تفسير القرآن الكريم (السعدي، الميسر، ابن كثير)",
+      "url": "/?tab=tafsir",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }
