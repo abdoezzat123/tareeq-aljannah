@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a23"/>
+      <stop offset="50%" stop-color="#0d0d14"/>
+      <stop offset="100%" stop-color="#050508"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0d490"/>
+      <stop offset="30%" stop-color="#dcb878"/>
+      <stop offset="50%" stop-color="#c4a86c"/>
+      <stop offset="70%" stop-color="#a08850"/>
+      <stop offset="100%" stop-color="#806840"/>
+    </linearGradient>
+    <linearGradient id="goldShine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#f0d490" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#c4a86c" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c4a86c" stop-opacity="0.4"/>
+      <stop offset="60%" stop-color="#c4a86c" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#c4a86c" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+  
+  <!-- خلفية مربعة بزوايا دائرية -->
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)"/>
+  
+  <!-- توهج ذهبي خلفي -->
+  <circle cx="256" cy="256" r="240" fill="url(#glow)"/>
+  
+  <!-- زخرفة دائرية خارجية -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="url(#goldGrad)" stroke-width="2" opacity="0.3"/>
+  <circle cx="256" cy="256" r="180" fill="none" stroke="url(#goldGrad)" stroke-width="1" opacity="0.2"/>
+  
+  <!-- نجمة ثمانية (إسلامية) -->
+  <g transform="translate(256, 256)">
+    <!-- نجمة أولى -->
+    <path d="M 0,-160 L 45,-45 L 160,0 L 45,45 L 0,160 L -45,45 L -160,0 L -45,-45 Z" 
+          fill="none" stroke="url(#goldGrad)" stroke-width="2" opacity="0.25"/>
+    <!-- نجمة ثانية مقلوبة -->
+    <path d="M 0,-160 L 45,-45 L 160,0 L 45,45 L 0,160 L -45,45 L -160,0 L -45,-45 Z" 
+          transform="rotate(22.5)"
+          fill="none" stroke="url(#goldGrad)" stroke-width="1.5" opacity="0.15"/>
+  </g>
+  
+  <!-- شكل القبة الإسلامية -->
+  <g transform="translate(256, 256)">
+    <!-- القاعدة -->
+    <ellipse cx="0" cy="80" rx="100" ry="15" fill="url(#goldGrad)" opacity="0.3"/>
+    
+    <!-- جسم القبة -->
+    <path d="M -90,80 L -90,20 Q -90,-40 -50,-70 Q 0,-100 50,-70 Q 90,-40 90,20 L 90,80 Z" 
+          fill="url(#goldGrad)" opacity="0.95"/>
+    <!-- إضاءة علوية -->
+    <path d="M -90,20 Q -90,-40 -50,-70 Q 0,-100 50,-70 Q 90,-40 90,20 L 90,30 L -90,30 Z" 
+          fill="url(#goldShine)" opacity="0.6"/>
+    
+    <!-- الهلال فوق القبة -->
+    <g transform="translate(0, -110)">
+      <circle cx="0" cy="0" r="25" fill="url(#goldGrad)"/>
+      <circle cx="8" cy="-3" r="22" fill="#0d0d14"/>
+    </g>
+    
+    <!-- الباب -->
+    <path d="M -20,80 L -20,30 Q -20,5 0,5 Q 20,5 20,30 L 20,80 Z" 
+          fill="#0d0d14" opacity="0.85"/>
+    <path d="M -20,80 L -20,30 Q -20,5 0,5 Q 20,5 20,30 L 20,80 Z" 
+          fill="none" stroke="url(#goldGrad)" stroke-width="1.5"/>
+    
+    <!-- النافذتان الجانبيتان -->
+    <rect x="-65" y="20" width="20" height="40" rx="10" fill="#0d0d14" opacity="0.7" stroke="url(#goldGrad)" stroke-width="1"/>
+    <rect x="45" y="20" width="20" height="40" rx="10" fill="#0d0d14" opacity="0.7" stroke="url(#goldGrad)" stroke-width="1"/>
+  </g>
+  
+  <!-- نص: "طريقك للجنة" -->
+  <g transform="translate(256, 410)">
+    <text x="0" y="0" text-anchor="middle" font-family="Amiri, serif" font-size="48" font-weight="bold" fill="url(#goldGrad)">
+      ٱللَّه
+    </text>
+  </g>
+  
+  <!-- زخارف زاوية -->
+  <g opacity="0.4">
+    <!-- أعلى يمين -->
+    <path d="M 412,100 L 412,80 L 432,80 M 412,80 L 422,70 L 432,80" 
+          fill="none" stroke="url(#goldGrad)" stroke-width="1.5"/>
+    <!-- أعلى يسار -->
+    <path d="M 100,100 L 100,80 L 80,80 M 100,80 L 90,70 L 80,80" 
+          fill="none" stroke="url(#goldGrad)" stroke-width="1.5"/>
+    <!-- أسفل يمين -->
+    <path d="M 412,412 L 412,432 L 432,432 M 412,432 L 422,442 L 432,432" 
+          fill="none" stroke="url(#goldGrad)" stroke-width="1.5"/>
+    <!-- أسفل يسار -->
+    <path d="M 100,412 L 100,432 L 80,432 M 100,432 L 90,442 L 80,432" 
+          fill="none" stroke="url(#goldGrad)" stroke-width="1.5"/>
+  </g>
+</svg>

@@ -35,6 +35,10 @@ export function TafsirView() {
   const [globalAyahNumbers, setGlobalAyahNumbers] = useState<number[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const [loadingTafsirAudio, setLoadingTafsirAudio] = useState(false);
+  const tafsirAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isStoppedRef = useRef(false);
+
   useEffect(() => {
     const settings = getSettings();
     setTafsir(settings.tafsir as "saadi" | "muyassar" | "ibnkathir");
@@ -76,18 +80,27 @@ export function TafsirView() {
 
   const playAyahTafsir = async (ayahIndex: number) => {
     if (!surahData) return;
+    isStoppedRef.current = false;
+
+    // إيقاف أي تشغيل سابق
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (tafsirAudioRef.current) {
+      tafsirAudioRef.current.pause();
+      tafsirAudioRef.current = null;
+    }
 
     // تشغيل تلاوة الآية أولاً
     if (globalAyahNumbers[ayahIndex]) {
       const audioUrl = `https://cdn.islamic.network/quran/audio/128/${qari}/${globalAyahNumbers[ayahIndex]}.mp3`;
-      if (audioRef.current) audioRef.current.pause();
-
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
       setCurrentAyah(ayahIndex);
 
       audio.onended = () => {
-        // بعد انتهاء التلاوة، نقرأ التفسير باستخدام Web Speech API
+        // بعد انتهاء التلاوة، نقرأ التفسير بصوت طبيعي
         readTafsir(ayahIndex);
       };
 
@@ -104,44 +117,114 @@ export function TafsirView() {
     }
   };
 
-  const readTafsir = (ayahIndex: number) => {
+  const readTafsir = async (ayahIndex: number) => {
     if (!surahData) return;
-    const tafsirText = tafsirData[tafsir]?.find((t) => t.ayahNumber === ayahIndex + 1)?.text;
-    if (!tafsirText) return;
+    if (isStoppedRef.current) return;
 
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(tafsirText);
-      utterance.lang = "ar-SA";
-      utterance.rate = 0.9;
-      utterance.onend = () => {
-        // الانتقال للآية التالية تلقائياً
-        const next = ayahIndex + 1;
-        if (next < (surahData.ayahs.length)) {
-          setTimeout(() => playAyahTafsir(next), 1000);
-        } else {
-          setCurrentAyah(-1);
-          toast.success("✅ انتهت السورة والتفسير");
+    const tafsirText = tafsirData[tafsir]?.find((t) => t.ayahNumber === ayahIndex + 1)?.text;
+    if (!tafsirText) {
+      // لا يوجد تفسير، انتقل للآية التالية
+      moveToNextAyah(ayahIndex);
+      return;
+    }
+
+    setLoadingTafsirAudio(true);
+
+    try {
+      // استدعاء API توليد الصوت الطبيعي
+      const response = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: tafsirText,
+          voice: "tongtong", // صوت دافئ وطبيعي - مثل قارئ يحكي قصة
+          speed: 0.85, // سرعة أبطأ قليلاً لإعطاء إحساس السرد
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("فشل في توليد الصوت");
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      tafsirAudioRef.current = audio;
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        tafsirAudioRef.current = null;
+        if (!isStoppedRef.current) {
+          moveToNextAyah(ayahIndex);
         }
       };
-      window.speechSynthesis.speak(utterance);
+
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        tafsirAudioRef.current = null;
+        setLoadingTafsirAudio(false);
+        if (!isStoppedRef.current) {
+          moveToNextAyah(ayahIndex);
+        }
+      };
+
+      await audio.play();
+      setLoadingTafsirAudio(false);
+    } catch (err) {
+      setLoadingTafsirAudio(false);
+      console.error("TTS error:", err);
+      // محاولة fallback إلى Web Speech API
+      if ("speechSynthesis" in window) {
+        toast.info("جارٍ استخدام صوت المتصفح كبديل", { duration: 2000 });
+        const utterance = new SpeechSynthesisUtterance(tafsirText);
+        utterance.lang = "ar-SA";
+        utterance.rate = 0.85;
+        utterance.onend = () => {
+          if (!isStoppedRef.current) moveToNextAyah(ayahIndex);
+        };
+        window.speechSynthesis.speak(utterance);
+      } else {
+        toast.error("تعذّر تشغيل التفسير الصوتي");
+        moveToNextAyah(ayahIndex);
+      }
+    }
+  };
+
+  const moveToNextAyah = (currentIndex: number) => {
+    if (!surahData) return;
+    const next = currentIndex + 1;
+    if (next < surahData.ayahs.length) {
+      setTimeout(() => {
+        if (!isStoppedRef.current) playAyahTafsir(next);
+      }, 800);
     } else {
-      toast.info("متصفحك لا يدعم قراءة التفسير صوتياً");
+      setCurrentAyah(-1);
+      toast.success("✅ انتهت السورة والتفسير");
     }
   };
 
   const stopPlayback = () => {
+    isStoppedRef.current = true;
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (tafsirAudioRef.current) {
+      tafsirAudioRef.current.pause();
+      tafsirAudioRef.current = null;
     }
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
+    setLoadingTafsirAudio(false);
     setCurrentAyah(-1);
   };
 
   useEffect(() => {
     return () => {
+      isStoppedRef.current = true;
       if (audioRef.current) audioRef.current.pause();
+      if (tafsirAudioRef.current) tafsirAudioRef.current.pause();
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     };
   }, []);
@@ -325,13 +408,22 @@ export function TafsirView() {
 
                   <button
                     onClick={() => isPlaying ? stopPlayback() : playAyahTafsir(idx)}
+                    disabled={loadingTafsirAudio && isPlaying}
                     className={cn(
                       "p-2 rounded-full transition-all",
-                      isPlaying ? "bg-destructive/20 text-destructive" : "glass-gold text-gold hover:gold-glow"
+                      isPlaying ? "bg-destructive/20 text-destructive" : "glass-gold text-gold hover:gold-glow",
+                      loadingTafsirAudio && isPlaying && "opacity-70"
                     )}
                   >
                     {isPlaying ? (
-                      <span className="text-xs font-bold px-2">⏹ إيقاف</span>
+                      loadingTafsirAudio ? (
+                        <span className="text-xs font-bold px-2 flex items-center gap-1">
+                          <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          توليد الصوت...
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold px-2">⏹ إيقاف</span>
+                      )
                     ) : (
                       <span className="text-xs font-bold px-2 flex items-center gap-1">
                         <Volume2 className="w-3 h-3" />
