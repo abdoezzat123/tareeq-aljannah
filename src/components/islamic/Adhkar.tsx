@@ -131,32 +131,48 @@ export function Adhkar() {
         {adhkar.map((dhikr, idx) => {
           const currentCount = counts[dhikr.id] || 0;
           const isComplete = currentCount >= dhikr.count;
+          const progress = Math.min((currentCount / dhikr.count) * 100, 100);
           return (
             <div
               key={dhikr.id}
               className={cn(
-                "glass rounded-2xl p-4 sm:p-5 transition-all",
-                isComplete && "border-gold/40 gold-glow"
+                "rounded-2xl p-4 sm:p-5 transition-all border-2",
+                isComplete
+                  ? "bg-emerald-950/40 border-emerald-500/60 shadow-[0_0_30px_rgba(16,185,129,0.25)]"
+                  : "glass border-gold/10"
               )}
             >
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
                   <div className={cn(
-                    "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
-                    isComplete ? "bg-gold text-background" : "bg-secondary text-muted-foreground"
+                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all",
+                    isComplete
+                      ? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.6)]"
+                      : "bg-secondary text-muted-foreground"
                   )}>
-                    {isComplete ? <Check className="w-4 h-4" /> : idx + 1}
+                    {isComplete ? <Check className="w-5 h-5" /> : idx + 1}
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    التكرار: <span className="font-bold text-gold">{dhikr.count}</span>
+                  <span className={cn(
+                    "text-xs",
+                    isComplete ? "text-emerald-400 font-bold" : "text-muted-foreground"
+                  )}>
+                    {isComplete ? "تم بإذن الله" : `التكرار: ${dhikr.count}`}
                   </span>
                 </div>
-                <div className="text-xs text-gold font-bold">
+                <div className={cn(
+                  "text-xs font-bold px-2 py-1 rounded-full",
+                  isComplete
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "bg-gold/10 text-gold"
+                )}>
                   {currentCount} / {dhikr.count}
                 </div>
               </div>
 
-              <p className="font-amiri text-xl sm:text-2xl leading-loose text-foreground mb-3 text-right">
+              <p className={cn(
+                "font-amiri text-xl sm:text-2xl leading-loose mb-3 text-right transition-colors",
+                isComplete ? "text-emerald-100" : "text-foreground"
+              )}>
                 {dhikr.text}
               </p>
 
@@ -164,20 +180,42 @@ export function Adhkar() {
                 <p className="text-xs text-muted-foreground mb-1">📖 {dhikr.reference}</p>
               )}
               {dhikr.virtue && (
-                <p className="text-xs text-gold/70 italic mb-3">✨ {dhikr.virtue}</p>
+                <p className={cn(
+                  "text-xs italic mb-3",
+                  isComplete ? "text-emerald-400/80" : "text-gold/70"
+                )}>
+                  {isComplete ? "🌟 تقبل الله منك" : `✨ ${dhikr.virtue}`}
+                </p>
+              )}
+
+              {/* شريط التقدم */}
+              {!isComplete && (
+                <div className="h-1.5 bg-secondary/50 rounded-full overflow-hidden mb-3">
+                  <div
+                    className="h-full bg-gradient-to-r from-gold-dark to-gold transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               )}
 
               <button
                 onClick={() => handleClick(dhikr)}
                 disabled={isComplete}
                 className={cn(
-                  "w-full py-3 rounded-xl font-bold transition-all",
+                  "w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
                   isComplete
-                    ? "bg-gold/20 text-gold cursor-default"
+                    ? "bg-emerald-500/20 text-emerald-400 cursor-default"
                     : "glass-gold text-gold hover:gold-glow active:scale-95"
                 )}
               >
-                {isComplete ? "✅ تم بإذن الله" : `اضغط للذكر (${currentCount})`}
+                {isComplete ? (
+                  <>
+                    <Check className="w-5 h-5" />
+                    تم بإذن الله
+                  </>
+                ) : (
+                  `اضغط للذكر (${currentCount})`
+                )}
               </button>
             </div>
           );
