@@ -3,25 +3,26 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 
-// تقسيم النص الطويل إلى أجزاء (كل جزء أقل من 1024 حرف)
-function splitTextIntoChunks(text: string, maxLength = 900): string[] {
+// تقسيم النص الطويل إلى أجزاء صغيرة
+function splitTextIntoChunks(text: string, maxLength = 180): string[] {
   // تنظيف النص
   text = text.replace(/\s+/g, " ").trim();
 
-  // تقسيم حسب الجمل
-  const sentences = text.match(/[^.!?؟。]+[.!?؟。]+/g) || [text];
+  // تقسيم حسب الجمل والعلامات
+  const sentences = text.match(/[^.!?؟،؛\n]+[.!?؟،؛\n]+/g) || [text];
 
   const chunks: string[] = [];
   let currentChunk = "";
 
   for (const sentence of sentences) {
-    if ((currentChunk + " " + sentence).trim().length <= maxLength) {
-      currentChunk = (currentChunk + " " + sentence).trim();
+    const trimmedSentence = sentence.trim();
+    if ((currentChunk + " " + trimmedSentence).trim().length <= maxLength) {
+      currentChunk = (currentChunk + " " + trimmedSentence).trim();
     } else {
       if (currentChunk) chunks.push(currentChunk);
       // إذا كانت الجملة نفسها أطول من maxLength، نقسمها حسب الكلمات
-      if (sentence.length > maxLength) {
-        const words = sentence.split(" ");
+      if (trimmedSentence.length > maxLength) {
+        const words = trimmedSentence.split(" ");
         let wordChunk = "";
         for (const word of words) {
           if ((wordChunk + " " + word).trim().length <= maxLength) {
@@ -34,7 +35,7 @@ function splitTextIntoChunks(text: string, maxLength = 900): string[] {
         if (wordChunk) currentChunk = wordChunk;
         else currentChunk = "";
       } else {
-        currentChunk = sentence;
+        currentChunk = trimmedSentence;
       }
     }
   }
@@ -51,54 +52,61 @@ function getTextHash(text: string, voice: string, speed: number): string {
     .digest("hex");
 }
 
-// دمج ملفات WAV متعددة في ملف واحد
-function concatWavFiles(buffers: Buffer[]): Buffer {
+// فحص إذا كان النص عربي
+function isArabicText(text: string): boolean {
+  const arabicChars = text.match(/[\u0600-\u06FF]/g);
+  return arabicChars !== null && arabicChars.length > text.length * 0.3;
+}
+
+// جلب الصوت من Google Translate TTS (يدعم العربية بصوت طبيعي)
+async function fetchGoogleTTS(text: string, lang = "ar"): Promise<Buffer> {
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text)}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "audio/mpeg, audio/*; q=0.9, */*; q=0.5",
+      "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
+      "Referer": "https://translate.google.com/",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google TTS failed: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(new Uint8Array(arrayBuffer));
+}
+
+// دمج ملفات MP3 متعددة (ببساطة دمج البايتات - يعمل لمعظم حالات MP3)
+function concatMp3Files(buffers: Buffer[]): Buffer {
   if (buffers.length === 0) return Buffer.alloc(0);
   if (buffers.length === 1) return buffers[0];
 
-  // قراءة معلومات WAV من أول ملف
-  const firstHeader = buffers[0].slice(0, 44);
-  const sampleRate = firstHeader.readUInt32LE(24);
-  const channels = firstHeader.readUInt16LE(22);
-  const bitsPerSample = firstHeader.readUInt16LE(34);
-
-  // حساب إجمالي حجم البيانات الصوتية (بدون الهيدر 44 بايت)
-  let totalDataSize = 0;
-  for (const buf of buffers) {
-    if (buf.length > 44) {
-      totalDataSize += buf.length - 44;
+  // دمج بسيط - لإزالة ID3 tags من الملفات الثانية فما بعد
+  const result: Buffer[] = [];
+  for (let i = 0; i < buffers.length; i++) {
+    if (i === 0) {
+      result.push(buffers[i]);
+    } else {
+      // تخطي ID3v2 tag إن وجد
+      const buf = buffers[i];
+      if (buf.length > 10 && buf.slice(0, 3).toString() === "ID3") {
+        const size = (buf[6] << 21) | (buf[7] << 14) | (buf[8] << 7) | buf[9];
+        const headerSize = 10 + size;
+        if (headerSize < buf.length) {
+          result.push(buf.slice(headerSize));
+        } else {
+          result.push(buf);
+        }
+      } else {
+        result.push(buf);
+      }
     }
   }
 
-  // إنشاء هيدر جديد
-  const newHeader = Buffer.alloc(44);
-  // "RIFF"
-  newHeader.write("RIFF", 0);
-  newHeader.writeUInt32LE(36 + totalDataSize, 4);
-  newHeader.write("WAVE", 8);
-  newHeader.write("fmt ", 12);
-  newHeader.writeUInt32LE(16, 16);
-  newHeader.writeUInt16LE(1, 20); // PCM
-  newHeader.writeUInt16LE(channels, 22);
-  newHeader.writeUInt32LE(sampleRate, 24);
-  newHeader.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28);
-  newHeader.writeUInt16LE(channels * bitsPerSample / 8, 32);
-  newHeader.writeUInt16LE(bitsPerSample, 34);
-  newHeader.write("data", 36);
-  newHeader.writeUInt32LE(totalDataSize, 40);
-
-  // دمج البيانات الصوتية
-  const result = Buffer.alloc(44 + totalDataSize);
-  newHeader.copy(result, 0);
-  let offset = 44;
-  for (const buf of buffers) {
-    if (buf.length > 44) {
-      buf.slice(44).copy(result, offset);
-      offset += buf.length - 44;
-    }
-  }
-
-  return result;
+  return Buffer.concat(result);
 }
 
 export async function POST(req: NextRequest) {
@@ -109,7 +117,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "النص مطلوب" }, { status: 400 });
     }
 
-    // تنظيف النص من الرموز الخاصة التي قد تؤثر على النطق
+    // تنظيف النص من الرموز الخاصة
     const cleanText = text
       .replace(/[*_#`~]/g, "")
       .replace(/\n+/g, " ")
@@ -126,15 +134,14 @@ export async function POST(req: NextRequest) {
     if (!fs.existsSync(cacheDir)) {
       fs.mkdirSync(cacheDir, { recursive: true });
     }
-    const cacheFile = path.join(cacheDir, `${cacheKey}.wav`);
+    const cacheFile = path.join(cacheDir, `${cacheKey}.mp3`);
 
     if (fs.existsSync(cacheFile)) {
-      // إرجاع الصوت من الكاش
       const cachedBuffer = fs.readFileSync(cacheFile);
       return new NextResponse(cachedBuffer, {
         status: 200,
         headers: {
-          "Content-Type": "audio/wav",
+          "Content-Type": "audio/mpeg",
           "Content-Length": cachedBuffer.length.toString(),
           "Cache-Control": "public, max-age=31536000, immutable",
           "X-Cache": "HIT",
@@ -142,40 +149,80 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // استيراد SDK
-    const ZAI = (await import("z-ai-web-dev-sdk")).default;
-    const zai = await ZAI.create();
+    let finalBuffer: Buffer;
 
-    // تقسيم النص لأجزاء
-    const chunks = splitTextIntoChunks(cleanText, 900);
-
-    const audioBuffers: Buffer[] = [];
-
-    for (const chunk of chunks) {
+    // اختيار خدمة TTS حسب لغة النص
+    if (isArabicText(cleanText)) {
+      // للنصوص العربية: استخدم Google Translate TTS (صوت عربي طبيعي)
       try {
-        const response = await zai.audio.tts.create({
-          input: chunk,
-          voice: voice,
-          speed: speed,
-          response_format: "wav",
-          stream: false,
-        });
+        const chunks = splitTextIntoChunks(cleanText, 180);
+        const audioBuffers: Buffer[] = [];
 
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(new Uint8Array(arrayBuffer));
-        audioBuffers.push(buffer);
+        for (const chunk of chunks) {
+          try {
+            const buffer = await fetchGoogleTTS(chunk, "ar");
+            audioBuffers.push(buffer);
+            // تأخير بسيط لتجنب الحظر
+            await new Promise((r) => setTimeout(r, 100));
+          } catch (err) {
+            console.error("Google TTS chunk error:", err);
+          }
+        }
+
+        if (audioBuffers.length === 0) {
+          throw new Error("فشل في توليد الصوت من Google TTS");
+        }
+
+        finalBuffer = audioBuffers.length > 1 ? concatMp3Files(audioBuffers) : audioBuffers[0];
       } catch (err) {
-        console.error("TTS chunk error:", err);
-        // نكمل باقي الأجزاء حتى لو فشل واحد
+        console.error("Arabic TTS error, falling back:", err);
+        // محاولة بديلة: استخدام z-ai-web-dev-sdk بصوت jam (إنجليزي)
+        const ZAI = (await import("z-ai-web-dev-sdk")).default;
+        const zai = await ZAI.create();
+        const chunks = splitTextIntoChunks(cleanText, 900);
+        const audioBuffers: Buffer[] = [];
+        for (const chunk of chunks) {
+          try {
+            const response = await zai.audio.tts.create({
+              input: chunk,
+              voice: "jam",
+              speed: speed,
+              response_format: "wav",
+              stream: false,
+            });
+            const arrayBuffer = await response.arrayBuffer();
+            audioBuffers.push(Buffer.from(new Uint8Array(arrayBuffer)));
+          } catch {}
+        }
+        if (audioBuffers.length === 0) {
+          return NextResponse.json({ error: "فشل في توليد الصوت" }, { status: 500 });
+        }
+        finalBuffer = audioBuffers[0];
       }
+    } else {
+      // للنصوص غير العربية: استخدام z-ai-web-dev-sdk
+      const ZAI = (await import("z-ai-web-dev-sdk")).default;
+      const zai = await ZAI.create();
+      const chunks = splitTextIntoChunks(cleanText, 900);
+      const audioBuffers: Buffer[] = [];
+      for (const chunk of chunks) {
+        try {
+          const response = await zai.audio.tts.create({
+            input: chunk,
+            voice: voice,
+            speed: speed,
+            response_format: "wav",
+            stream: false,
+          });
+          const arrayBuffer = await response.arrayBuffer();
+          audioBuffers.push(Buffer.from(new Uint8Array(arrayBuffer)));
+        } catch {}
+      }
+      if (audioBuffers.length === 0) {
+        return NextResponse.json({ error: "فشل في توليد الصوت" }, { status: 500 });
+      }
+      finalBuffer = audioBuffers[0];
     }
-
-    if (audioBuffers.length === 0) {
-      return NextResponse.json({ error: "فشل في توليد الصوت" }, { status: 500 });
-    }
-
-    // دمج الأجزاء
-    const finalBuffer = audioBuffers.length > 1 ? concatWavFiles(audioBuffers) : audioBuffers[0];
 
     // حفظ في الكاش
     try {
@@ -184,10 +231,14 @@ export async function POST(req: NextRequest) {
       console.error("Cache write error:", e);
     }
 
+    // تحديد نوع المحتوى حسب الخدمة المستخدمة
+    const isArabic = isArabicText(cleanText);
+    const contentType = isArabic ? "audio/mpeg" : "audio/wav";
+
     return new NextResponse(finalBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "audio/wav",
+        "Content-Type": contentType,
         "Content-Length": finalBuffer.length.toString(),
         "Cache-Control": "public, max-age=31536000, immutable",
         "X-Cache": "MISS",
@@ -202,11 +253,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET endpoint للتحقق من حالة الـ API
 export async function GET() {
   return NextResponse.json({
     status: "ok",
     service: "TTS API - طريقك للجنة",
-    voices: ["tongtong", "chuichui", "xiaochen", "jam", "kazi", "douji", "luodo"],
+    languages: {
+      arabic: "Google Translate TTS (صوت عربي طبيعي)",
+      other: "z-ai-web-dev-sdk",
+    },
   });
 }
