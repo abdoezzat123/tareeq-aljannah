@@ -94,6 +94,62 @@ export function saveSettings(settings: Partial<UserSettings>): void {
   setItem("settings", { ...current, ...settings });
 }
 
+// ===== تتبع الصلوات اليومية =====
+// بنحفظ حالة كل صلاة في كل يوم
+// المفتاح: prayer-tracking_<YYYY-MM-DD>
+// القيمة: { Fajr: true, Dhuhr: false, ... }
+
+export type PrayerId = "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha";
+
+export interface PrayerTracking {
+  Fajr: boolean;
+  Sunrise: boolean; // الشروق مش صلاة بس بنتركها اختياري
+  Dhuhr: boolean;
+  Asr: boolean;
+  Maghrib: boolean;
+  Isha: boolean;
+}
+
+const emptyTracking: PrayerTracking = {
+  Fajr: false,
+  Sunrise: false,
+  Dhuhr: false,
+  Asr: false,
+  Maghrib: false,
+  Isha: false,
+};
+
+export function getPrayerTracking(date?: string): PrayerTracking {
+  if (typeof window === "undefined") return { ...emptyTracking };
+  const dateKey = date || getTodayKey();
+  return getItem<PrayerTracking>(`prayer-tracking_${dateKey}`, { ...emptyTracking });
+}
+
+export function setPrayerPrayed(prayerId: PrayerId, prayed: boolean, date?: string): PrayerTracking {
+  const dateKey = date || getTodayKey();
+  const tracking = getPrayerTracking(dateKey);
+  tracking[prayerId] = prayed;
+  setItem(`prayer-tracking_${dateKey}`, tracking);
+  return tracking;
+}
+
+// جلب كل سجللات الصلاة (للإحصائيات)
+export function getAllPrayerTracking(): { date: string; tracking: PrayerTracking }[] {
+  if (typeof window === "undefined") return [];
+  const results: { date: string; tracking: PrayerTracking }[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(`${STORAGE_PREFIX}prayer-tracking_`)) {
+      const date = key.replace(`${STORAGE_PREFIX}prayer-tracking_`, "");
+      try {
+        const tracking = JSON.parse(localStorage.getItem(key) || "{}");
+        results.push({ date, tracking });
+      } catch {}
+    }
+  }
+  return results.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // إشعارات المتصفح
 export async function requestNotificationPermission(): Promise<boolean> {
   if (typeof window === "undefined" || !("Notification" in window)) return false;

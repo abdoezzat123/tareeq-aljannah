@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MapPin, Search, Navigation2, Loader2, Clock, Sunrise, Sun, Sunset, Moon } from "lucide-react";
+import { MapPin, Search, Navigation2, Loader2, Clock, Sunrise, Sun, Sunset, Moon, Check, CheckCircle2, Circle } from "lucide-react";
 import { cities, fetchPrayerTimes, formatTime12, getNextPrayer, PrayerData } from "@/lib/prayer-api";
-import { getSettings, saveSettings } from "@/lib/storage";
+import { getSettings, saveSettings, getPrayerTracking, setPrayerPrayed, PrayerTracking, PrayerId } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -30,6 +30,7 @@ export function PrayerTimes() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0, name: "", time: "" });
+  const [prayerTracking, setPrayerTracking] = useState<PrayerTracking | null>(null);
 
   const loadPrayerTimes = useCallback(async (location?: { lat: number; lng: number; name: string; country: string }) => {
     setLoading(true);
@@ -90,6 +91,27 @@ export function PrayerTimes() {
     loadPrayerTimes();
   }, [loadPrayerTimes]);
 
+  // تحميل حالة الصلوات المحفوظة عند بدء التطبيق
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPrayerTracking(getPrayerTracking());
+  }, []);
+
+  // تبديل حالة الصلاة (صليت / لم أصلِّ)
+  const togglePrayer = (prayerId: PrayerId, prayerName: string) => {
+    if (!prayerTracking) return;
+    const newValue = !prayerTracking[prayerId];
+    const updated = setPrayerPrayed(prayerId, newValue);
+    setPrayerTracking({ ...updated });
+    if (newValue) {
+      toast.success(`✅ ${prayerName} — تقبل الله`, {
+        description: "تم تسجيل الصلاة",
+      });
+    } else {
+      toast.info(`تم إلغاء تسجيل ${prayerName}`);
+    }
+  };
+
   // تحديث العد التنازلي كل ثانية
   useEffect(() => {
     if (!prayerData) return;
@@ -138,12 +160,12 @@ export function PrayerTimes() {
 
   const prayers = prayerData
     ? [
-        { name: "الفجر", time: prayerData.timings.Fajr, icon: Sunrise, color: "from-purple-500/20 to-indigo-500/10" },
-        { name: "الشروق", time: prayerData.timings.Sunrise, icon: Sun, color: "from-orange-500/20 to-yellow-500/10" },
-        { name: "الظهر", time: prayerData.timings.Dhuhr, icon: Sun, color: "from-yellow-500/20 to-orange-500/10" },
-        { name: "العصر", time: prayerData.timings.Asr, icon: Sun, color: "from-amber-500/20 to-yellow-500/10" },
-        { name: "المغرب", time: prayerData.timings.Maghrib, icon: Sunset, color: "from-orange-600/20 to-red-500/10" },
-        { name: "العشاء", time: prayerData.timings.Isha, icon: Moon, color: "from-indigo-600/20 to-blue-800/10" },
+        { id: "Fajr" as PrayerId, name: "الفجر", time: prayerData.timings.Fajr, icon: Sunrise, color: "from-purple-500/20 to-indigo-500/10" },
+        { id: "Sunrise" as PrayerId, name: "الشروق", time: prayerData.timings.Sunrise, icon: Sun, color: "from-orange-500/20 to-yellow-500/10" },
+        { id: "Dhuhr" as PrayerId, name: "الظهر", time: prayerData.timings.Dhuhr, icon: Sun, color: "from-yellow-500/20 to-orange-500/10" },
+        { id: "Asr" as PrayerId, name: "العصر", time: prayerData.timings.Asr, icon: Sun, color: "from-amber-500/20 to-yellow-500/10" },
+        { id: "Maghrib" as PrayerId, name: "المغرب", time: prayerData.timings.Maghrib, icon: Sunset, color: "from-orange-600/20 to-red-500/10" },
+        { id: "Isha" as PrayerId, name: "العشاء", time: prayerData.timings.Isha, icon: Moon, color: "from-indigo-600/20 to-blue-800/10" },
       ]
     : [];
 
@@ -291,36 +313,95 @@ export function PrayerTimes() {
             {prayers.map((prayer) => {
               const Icon = prayer.icon;
               const isNext = countdown.name === prayer.name;
+              const isPrayed = prayerTracking?.[prayer.id] || false;
+              const isSunrise = prayer.id === "Sunrise"; // الشروق مش صلاة
               return (
                 <div
                   key={prayer.name}
                   className={cn(
-                    "rounded-2xl p-4 transition-all border",
-                    isNext
-                      ? "glass-gold border-gold/40 gold-glow"
-                      : "glass border-gold/10"
+                    "rounded-2xl p-4 transition-all border-2 relative",
+                    isPrayed
+                      ? "bg-emerald-950/30 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                      : isNext
+                        ? "glass-gold border-gold/40 gold-glow"
+                        : "glass border-gold/10"
                   )}
                 >
-                  <div className={cn(
-                    "rounded-xl p-3 mb-3 bg-gradient-to-br inline-flex",
-                    prayer.color
-                  )}>
-                    <Icon className={cn("w-6 h-6", isNext ? "text-gold" : "text-muted-foreground")} />
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={cn(
+                      "rounded-xl p-2.5 bg-gradient-to-br inline-flex",
+                      prayer.color
+                    )}>
+                      <Icon className={cn("w-5 h-5", isNext ? "text-gold" : isPrayed ? "text-emerald-400" : "text-muted-foreground")} />
+                    </div>
+                    {/* زر العلامة - لتسجيل الصلاة */}
+                    {!isSunrise && (
+                      <button
+                        onClick={() => togglePrayer(prayer.id, prayer.name)}
+                        className={cn(
+                          "transition-all active:scale-90 p-1 rounded-full",
+                          isPrayed ? "text-emerald-400" : "text-muted-foreground hover:text-gold"
+                        )}
+                        title={isPrayed ? "صليت - اضغط للإلغاء" : "اضغط لتسجيل الصلاة"}
+                      >
+                        {isPrayed ? (
+                          <CheckCircle2 className="w-6 h-6 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                        ) : (
+                          <Circle className="w-6 h-6" />
+                        )}
+                      </button>
+                    )}
                   </div>
-                  <div className="text-sm font-bold text-foreground mb-1">{prayer.name}</div>
+                  <div className={cn(
+                    "text-sm font-bold mb-1",
+                    isPrayed ? "text-emerald-400" : "text-foreground"
+                  )}>
+                    {prayer.name}
+                  </div>
                   <div className={cn(
                     "text-lg sm:text-xl font-bold tabular-nums",
-                    isNext ? "text-gold" : "text-foreground/80"
+                    isPrayed ? "text-emerald-300" : isNext ? "text-gold" : "text-foreground/80"
                   )} dir="ltr">
                     {formatTime12(prayer.time)}
                   </div>
-                  {isNext && (
+                  {isNext && !isPrayed && (
                     <div className="text-[10px] text-gold mt-1 animate-pulse">● القادمة</div>
+                  )}
+                  {isPrayed && (
+                    <div className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      تمت الصلاة
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
+
+          {/* ملخص الصلوات اليوم */}
+          {prayerTracking && (
+            <div className="glass rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-gold">صلوات اليوم</h3>
+                <span className="text-xs text-muted-foreground">
+                  {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].filter((p) => prayerTracking[p as PrayerId]).length} / 5
+                </span>
+              </div>
+              <div className="h-2 bg-secondary/50 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
+                  style={{
+                    width: `${(["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].filter((p) => prayerTracking[p as PrayerId]).length / 5) * 100}%`,
+                  }}
+                />
+              </div>
+              {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].filter((p) => prayerTracking[p as PrayerId]).length === 5 && (
+                <p className="text-center text-sm text-emerald-400 font-bold mt-2">
+                  🌟 تقبل الله منك — أكملت صلوات اليوم
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

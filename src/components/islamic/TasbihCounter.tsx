@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { RotateCcw, Target, TrendingUp, Vibrate, Volume2, VolumeX } from "lucide-react";
+import { RotateCcw, Target, TrendingUp, Vibrate, Volume2, VolumeX, Check } from "lucide-react";
 import { tasbeehat, TasbihItem } from "@/lib/adhkar-data";
 import { saveTasbihCount, getTodayTasbih, getTasbihHistory, getTodayKey } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,14 @@ const getInitialDailyGoal = (): number => {
   }
 };
 
+// تحديد إذا كان التسبيح اكتمل (وصل للهدف على الأقل مرة)
+const isTasbihCompleted = (t: TasbihItem): boolean => {
+  if (typeof window === "undefined") return false;
+  const today = getTodayTasbih();
+  const count = today?.counts?.[t.id] || 0;
+  return count >= t.target;
+};
+
 export function TasbihCounter() {
   const [selectedTasbih, setSelectedTasbih] = useState<TasbihItem>(tasbeehat[0]);
   const [count, setCount] = useState(() => getInitialCount(tasbeehat[0].id));
@@ -34,6 +42,15 @@ export function TasbihCounter() {
   const [isPressed, setIsPressed] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [dailyGoal, setDailyGoal] = useState(getInitialDailyGoal);
+  // نسخة محدثة من قائمة التسابيح للحالة المكتملة
+  const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    const set = new Set<string>();
+    tasbeehat.forEach((t) => {
+      if (isTasbihCompleted(t)) set.add(t.id);
+    });
+    return set;
+  });
 
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -115,9 +132,17 @@ export function TasbihCounter() {
       if (vibrationEnabled && "vibrate" in navigator) {
         navigator.vibrate([60, 50, 60]);
       }
-      toast.success(`🎯 دورة مكتملة! (${newRound})`, {
-        description: `${selectedTasbih.text} × ${selectedTasbih.target}`,
-      });
+      // أول مرة تكمل فيها - ضيفها للتسابيح المكتملة
+      if (newRound === 1) {
+        setCompletedIds((prev) => new Set(prev).add(selectedTasbih.id));
+        toast.success(`✅ تسبيح مكتمل!`, {
+          description: `${selectedTasbih.text} — تقبل الله منك`,
+        });
+      } else {
+        toast.success(`🎯 دورة مكتملة! (${newRound})`, {
+          description: `${selectedTasbih.text} × ${selectedTasbih.target}`,
+        });
+      }
     } else {
       playClickSound();
     }
@@ -215,34 +240,69 @@ export function TasbihCounter() {
 
       {/* اختيار التسبيح */}
       <div className="glass rounded-2xl p-4">
-        <h3 className="text-sm font-bold text-gold mb-3">اختر التسبيح:</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-gold">اختر التسبيح:</h3>
+          {completedIds.size > 0 && (
+            <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+              <Check className="w-3 h-3" />
+              {completedIds.size} مكتمل
+            </span>
+          )}
+        </div>
         <div className="flex gap-2 overflow-x-auto pb-2 custom-scroll">
-          {tasbeehat.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => changeTasbih(t)}
-              className={cn(
-                "px-4 py-2 rounded-xl whitespace-nowrap text-sm font-medium transition-all shrink-0",
-                selectedTasbih.id === t.id
-                  ? "glass-gold text-gold gold-glow"
-                  : "bg-secondary/50 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {t.text}
-            </button>
-          ))}
+          {tasbeehat.map((t) => {
+            const isCompleted = completedIds.has(t.id);
+            const isSelected = selectedTasbih.id === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => changeTasbih(t)}
+                className={cn(
+                  "px-4 py-2 rounded-xl whitespace-nowrap text-sm font-medium transition-all shrink-0 flex items-center gap-1.5",
+                  isCompleted
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                    : isSelected
+                      ? "glass-gold text-gold gold-glow"
+                      : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {isCompleted && <Check className="w-3.5 h-3.5" />}
+                {t.text}
+              </button>
+            );
+          })}
         </div>
 
         {/* معلومات التسبيح */}
-        <div className="mt-4 p-3 rounded-xl bg-secondary/30 border border-gold/10">
-          <p className="font-amiri text-xl text-foreground mb-2 leading-relaxed">
-            {selectedTasbih.text}
-          </p>
+        <div className={cn(
+          "mt-4 p-3 rounded-xl border transition-all",
+          completedIds.has(selectedTasbih.id)
+            ? "bg-emerald-950/30 border-emerald-500/40"
+            : "bg-secondary/30 border-gold/10"
+        )}>
+          <div className="flex items-center justify-between mb-2">
+            <p className={cn(
+              "font-amiri text-xl leading-relaxed",
+              completedIds.has(selectedTasbih.id) ? "text-emerald-100" : "text-foreground"
+            )}>
+              {selectedTasbih.text}
+            </p>
+            {completedIds.has(selectedTasbih.id) && (
+              <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.5)]">
+                <Check className="w-5 h-5 text-white" />
+              </div>
+            )}
+          </div>
           {selectedTasbih.translation && (
             <p className="text-xs text-muted-foreground mb-1">{selectedTasbih.translation}</p>
           )}
           {selectedTasbih.virtue && (
-            <p className="text-xs text-gold/80 italic">﴿ {selectedTasbih.virtue} ﴾</p>
+            <p className={cn(
+              "text-xs italic",
+              completedIds.has(selectedTasbih.id) ? "text-emerald-400/80" : "text-gold/80"
+            )}>
+              {completedIds.has(selectedTasbih.id) ? "🌟 تقبل الله منك" : `﴿ ${selectedTasbih.virtue} ﴾`}
+            </p>
           )}
           <p className="text-xs text-muted-foreground mt-1">الهدف لكل دورة: {selectedTasbih.target}</p>
         </div>
