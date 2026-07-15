@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Clock, MapPin, Sparkles, Beaker, BookOpen, Moon, TrendingUp, Bell, BellOff, Volume2 } from "lucide-react";
-import { getSettings, getTodayTasbih, requestNotificationPermission, showNotification, playReminderSound } from "@/lib/storage";
+import { getSettings, getTodayTasbih, requestNotificationPermission, showNotification, playReminderSound, playAdhanSound } from "@/lib/storage";
 import { hourlyAdhkar } from "@/lib/adhkar-data";
 import { fetchPrayerTimes, formatTime12, getNextPrayer, PrayerData } from "@/lib/prayer-api";
 import { TabId } from "./Navigation";
@@ -35,6 +35,7 @@ export function HomeDashboard({ onNavigate }: HomeProps) {
   const [adhkarReminder, setAdhkarReminder] = useState(initialSettings.adhkarReminder);
   const [notificationsEnabled, setNotificationsEnabled] = useState(initialSettings.notificationsEnabled);
   const lastHourNotifiedRef = useRef(-1);
+  const lastPrayerNotifiedRef = useRef("");
   const locationLoadedRef = useRef(false);
 
   const todayTasbih = getTodayTasbih();
@@ -83,16 +84,16 @@ export function HomeDashboard({ onNavigate }: HomeProps) {
     return () => clearInterval(interval);
   }, [prayerData]);
 
-  // تذكير كل ساعة
+  // تذكير كل ساعة + تنبيهات الصلوات
   useEffect(() => {
-    if (!hourlyReminder) return;
+    if (!hourlyReminder && !adhkarReminder) return;
     const interval = setInterval(() => {
       const now = new Date();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
-      // كل بداية ساعة (الدقيقة 0)
-      if (currentMinute === 0 && currentHour !== lastHourNotifiedRef.current) {
+      // 1) تذكير كل ساعة بذكر الله (الدقيقة 0)
+      if (hourlyReminder && currentMinute === 0 && currentHour !== lastHourNotifiedRef.current) {
         lastHourNotifiedRef.current = currentHour;
         const dhikr = hourlyAdhkar[currentHour % hourlyAdhkar.length];
 
@@ -109,10 +110,51 @@ export function HomeDashboard({ onNavigate }: HomeProps) {
           duration: 10000,
         });
       }
-    }, 60000); // تحقق كل دقيقة
+
+      // 2) تنبيهات الصلوات (لما نوصل وقت صلاة)
+      if (adhkarReminder && prayerData) {
+        const prayers = [
+          { name: "الفجر", time: prayerData.timings.Fajr },
+          { name: "الظهر", time: prayerData.timings.Dhuhr },
+          { name: "العصر", time: prayerData.timings.Asr },
+          { name: "المغرب", time: prayerData.timings.Maghrib },
+          { name: "العشاء", time: prayerData.timings.Isha },
+        ];
+
+        for (const prayer of prayers) {
+          const [h, m] = prayer.time.split(" ")[0].split(":").map(Number);
+          // لما يكون الوقت نفسه بالظبط (نفس الساعة والدقيقة)
+          if (h === currentHour && m === currentMinute) {
+            // نتأكد إننا ما نبعتش نفس التنبيه مرتين
+            const notifKey = `prayer-${prayer.name}-${currentHour}-${currentMinute}-${now.getDate()}`;
+            if (lastPrayerNotifiedRef.current !== notifKey) {
+              lastPrayerNotifiedRef.current = notifKey;
+
+              // تشغيل الأذان
+              playAdhanSound();
+
+              // إشعار المتصفح
+              if (notificationsEnabled) {
+                showNotification(
+                  `🕌 حان وقت صلاة ${prayer.name}`,
+                  `حي على الصلاة، حي على الفلاح\nالوقت: ${formatTime12(prayer.time)}`
+                );
+              }
+
+              // toast
+              toast.info(`🕌 حان وقت صلاة ${prayer.name}`, {
+                description: `حي على الصلاة • ${formatTime12(prayer.time)}`,
+                duration: 15000,
+              });
+            }
+            break;
+          }
+        }
+      }
+    }, 30000); // تحقق كل 30 ثانية عشان متنفوتش الصلاة
 
     return () => clearInterval(interval);
-  }, [hourlyReminder, notificationsEnabled, adhkarReminder]);
+  }, [hourlyReminder, notificationsEnabled, adhkarReminder, prayerData]);
 
   const toggleNotifications = async () => {
     if (notificationsEnabled) {
@@ -287,6 +329,76 @@ export function HomeDashboard({ onNavigate }: HomeProps) {
             {notificationsEnabled ? "✓ الإشعارات مفعّلة" : "تفعيل الإشعارات"}
           </button>
         </div>
+      </div>
+
+      {/* تنبيهات الصلوات */}
+      <div className="glass-gold rounded-2xl p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground text-sm">تنبيهات الصلوات</h3>
+              <p className="text-xs text-muted-foreground">أذان + إشعار عند وقت كل صلاة</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const newValue = !adhkarReminder;
+              setAdhkarReminder(newValue);
+              const settings = getSettings();
+              saveSettings({ ...settings, adhkarReminder: newValue });
+              toast.info(newValue ? "تم تفعيل تنبيهات الصلوات 🔔" : "تم إيقاف تنبيهات الصلوات");
+            }}
+            className={cn(
+              "w-12 h-6 rounded-full transition-all relative",
+              adhkarReminder ? "bg-emerald-500" : "bg-secondary"
+            )}
+          >
+            <div className={cn(
+              "absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all",
+              adhkarReminder ? "right-0.5" : "right-6"
+            )} />
+          </button>
+        </div>
+
+        {adhkarReminder && prayerData ? (
+          <div className="mt-4 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+            <p className="text-xs text-emerald-400 font-bold mb-2">📞 التنبيهات مفعّلة لـ:</p>
+            <div className="grid grid-cols-5 gap-1 text-center">
+              {[
+                { name: "الفجر", time: prayerData.timings.Fajr },
+                { name: "الظهر", time: prayerData.timings.Dhuhr },
+                { name: "العصر", time: prayerData.timings.Asr },
+                { name: "المغرب", time: prayerData.timings.Maghrib },
+                { name: "العشاء", time: prayerData.timings.Isha },
+              ].map((p) => (
+                <div key={p.name} className="text-[10px]">
+                  <div className="text-muted-foreground">{p.name}</div>
+                  <div className="font-bold text-emerald-400" dir="ltr">{formatTime12(p.time)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {prayerData ? "فعّل التنبيهات عشان تصلك في وقت كل صلاة" : "حدد موقعك الأول من قسم مواقيت الصلاة"}
+          </p>
+        )}
+
+        {/* زر اختبار الأذان */}
+        {adhkarReminder && (
+          <button
+            onClick={() => {
+              playAdhanSound();
+              toast.info("🔔 ده شكل صوت الأذان اللي هتسمعه");
+            }}
+            className="mt-3 w-full py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-all"
+          >
+            🔔 جرّب صوت الأذان
+          </button>
+        )}
       </div>
 
       {/* بطاقات سريعة */}

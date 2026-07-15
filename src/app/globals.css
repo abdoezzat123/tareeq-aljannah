@@ -157,18 +157,15 @@
 
 /* ===== صفحة المصحف الشريف ===== */
 .mushaf-page {
-  background:
-    radial-gradient(ellipse at top, rgba(180, 140, 60, 0.04) 0%, transparent 70%),
-    linear-gradient(180deg, #fdfaf3 0%, #f5f0e1 50%, #ede5d0 100%);
-  color: #1a1a1a;
+  background: #ffffff !important;
+  color: #000000 !important;
   position: relative;
   border-radius: 12px;
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.15),
-    inset 0 0 0 1px rgba(180, 140, 60, 0.3),
-    inset 0 0 0 8px rgba(255, 252, 245, 0.8),
-    inset 0 0 0 9px rgba(180, 140, 60, 0.4),
-    inset 0 0 60px rgba(180, 140, 60, 0.05);
+    inset 0 0 0 1px rgba(180, 140, 60, 0.4),
+    inset 0 0 0 8px #ffffff,
+    inset 0 0 0 9px rgba(180, 140, 60, 0.5);
 }
 
 /* زخرفة الزوايا */

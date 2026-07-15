@@ -175,15 +175,15 @@ export function showNotification(title: string, body: string, icon?: string): vo
   }
 }
 
-// تشغيل صوت تذكير قصير باستخدام Web Audio API
+// صوت تذكير لطيف - نغمة هادئة مش مزعجة (بدون موسيقى)
 export function playReminderSound(): void {
   if (typeof window === "undefined") return;
   try {
     const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const now = audioContext.currentTime;
 
-    // نغمتين قصيرتين
-    const playTone = (freq: number, startTime: number, duration: number) => {
+    // نغمة هادئة قصيرة (نبرة واحدة ناعمة)
+    const playTone = (freq: number, startTime: number, duration: number, volume = 0.15) => {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 
@@ -194,17 +194,63 @@ export function playReminderSound(): void {
       oscillator.frequency.setValueAtTime(freq, startTime);
 
       gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+      gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.02);
       gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
 
       oscillator.start(startTime);
       oscillator.stop(startTime + duration);
     };
 
-    playTone(523.25, now, 0.3); // C5
-    playTone(659.25, now + 0.35, 0.3); // E5
-    playTone(783.99, now + 0.7, 0.5); // G5
+    // نغمتين هادئتين فقط (مش موسيقى)
+    playTone(440, now, 0.5);        // A4 - نغمة هادئة
+    playTone(587.33, now + 0.6, 0.6); // D5 - نغمة أعلى قليلاً
 
     setTimeout(() => audioContext.close(), 2000);
+  } catch {}
+}
+
+// صوت أذان خفيف للصلوات (نغمة الأذان التقليدية المبسطة)
+export function playAdhanSound(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const now = audioContext.currentTime;
+
+    const playTone = (freq: number, startTime: number, duration: number, volume = 0.2) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(freq, startTime);
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+
+    // نغمة الأذان المبسطة (الله أكبر × 4 مرات بنفس النمط)
+    // النمط: نغمتين لكل "الله أكبر"
+    const adhanPattern = [
+      // الله أكبر (1)
+      { freq: 392, time: 0, dur: 0.4 },     // G4
+      { freq: 440, time: 0.4, dur: 0.4 },   // A4
+      // الله أكبر (2)
+      { freq: 392, time: 1.0, dur: 0.4 },
+      { freq: 440, time: 1.4, dur: 0.4 },
+      // الله أكبر (3)
+      { freq: 392, time: 2.0, dur: 0.4 },
+      { freq: 440, time: 2.4, dur: 0.4 },
+      // الله أكبر (4)
+      { freq: 392, time: 3.0, dur: 0.4 },
+      { freq: 440, time: 3.4, dur: 0.4 },
+    ];
+
+    adhanPattern.forEach(note => {
+      playTone(note.freq, now + note.time, note.dur);
+    });
+
+    setTimeout(() => audioContext.close(), 5000);
   } catch {}
 }
