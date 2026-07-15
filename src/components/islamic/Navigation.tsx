@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Home, Beaker, BookOpen, Clock, Sparkles, Moon, Sun } from "lucide-react";
+import { Home, Beaker, BookOpen, Clock, Sparkles, Moon, Sun, Bookmark, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type TabId = "home" | "tasbih" | "adhkar" | "prayer" | "quran" | "tafsir";
+export type TabId = "home" | "tasbih" | "adhkar" | "prayer" | "quran" | "tafsir" | "bookmarks" | "account";
 
 interface NavigationProps {
   activeTab: TabId;
@@ -18,6 +18,8 @@ const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
   { id: "prayer", label: "مواقيت الصلاة", icon: Clock },
   { id: "quran", label: "القرآن الكريم", icon: BookOpen },
   { id: "tafsir", label: "التفسير", icon: Moon },
+  { id: "bookmarks", label: "العلامات", icon: Bookmark },
+  { id: "account", label: "حسابي", icon: User },
 ];
 
 export function Navigation({ activeTab, onTabChange }: NavigationProps) {

@@ -8,14 +8,16 @@ import { Adhkar } from "@/components/islamic/Adhkar";
 import { PrayerTimes } from "@/components/islamic/PrayerTimes";
 import { QuranReader } from "@/components/islamic/QuranReader";
 import { TafsirView } from "@/components/islamic/TafsirView";
+import { BookmarksPage } from "@/components/islamic/BookmarksPage";
+import { AccountPage } from "@/components/islamic/AccountPage";
 import { requestNotificationPermission, getSettings } from "@/lib/storage";
 
 const getInitialTab = (): TabId => {
   if (typeof window === "undefined") return "home";
-  // دعم للـ shortcuts من الـ manifest
   const urlParams = new URLSearchParams(window.location.search);
   const tabParam = urlParams.get("tab") as TabId | null;
-  if (tabParam && ["home", "tasbih", "adhkar", "prayer", "quran", "tafsir"].includes(tabParam)) {
+  const validTabs: TabId[] = ["home", "tasbih", "adhkar", "prayer", "quran", "tafsir", "bookmarks", "account"];
+  if (tabParam && validTabs.includes(tabParam)) {
     return tabParam;
   }
   return (localStorage.getItem("tareeq-islam_lastTab") as TabId) || "home";
@@ -25,7 +27,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
 
   useEffect(() => {
-    // طلب إذن الإشعارات تلقائياً عند الزيارة الأولى
     const settings = getSettings();
     if (settings.hourlyReminder && "Notification" in window && Notification.permission === "default") {
       const timer = setTimeout(() => requestNotificationPermission(), 3000);
@@ -38,7 +39,6 @@ export default function Home() {
     if (typeof window !== "undefined") {
       localStorage.setItem("tareeq-islam_lastTab", tab);
     }
-    // تمرير لأعلى
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -53,6 +53,8 @@ export default function Home() {
         {activeTab === "prayer" && <PrayerTimes />}
         {activeTab === "quran" && <QuranReader />}
         {activeTab === "tafsir" && <TafsirView />}
+        {activeTab === "bookmarks" && <BookmarksPage onNavigate={handleTabChange} />}
+        {activeTab === "account" && <AccountPage onNavigate={handleTabChange} />}
       </main>
 
       <footer className="mt-8 p-6 text-center text-xs text-muted-foreground">

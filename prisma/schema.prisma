@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,19 +11,83 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userData     UserData[]
+  bookmarks    Bookmark[]
+  prayerLogs   PrayerLog[]
+  tasbihLogs   TasbihLog[]
+  readingPos   ReadingPosition?
 }
 
-model Post {
+model UserData {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
+  userId    String
+  key       String
+  value     String
   updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+}
+
+model Bookmark {
+  id           String   @id @default(cuid())
+  userId       String
+  surahNumber  Int
+  ayahNumber   Int
+  surahName    String
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, surahNumber, ayahNumber])
+}
+
+model PrayerLog {
+  id         String   @id @default(cuid())
+  userId     String
+  date       String
+  fajr       Boolean  @default(false)
+  sunrise    Boolean  @default(false)
+  dhuhr      Boolean  @default(false)
+  asr        Boolean  @default(false)
+  maghrib    Boolean  @default(false)
+  isha       Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model TasbihLog {
+  id         String   @id @default(cuid())
+  userId     String
+  date       String
+  counts     String
+  total      Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model ReadingPosition {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  surahNumber  Int
+  surahName    String
+  ayahNumber   Int
+  ayahIndex    Int
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
