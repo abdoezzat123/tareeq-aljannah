@@ -379,8 +379,10 @@ export function TafsirView() {
         <div className="space-y-4">
           {/* البسملة */}
           {selectedSurah?.number !== 1 && selectedSurah?.number !== 9 && (
-            <div className="glass rounded-2xl p-5 text-center">
-              <p className="font-amiri text-3xl sm:text-4xl gold-gradient-text">
+            <div className="mushaf-page p-6 text-center relative">
+              <span className="corner-tl" />
+              <span className="corner-br" />
+              <p className="basmala">
                 بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ
               </p>
             </div>
@@ -435,10 +437,15 @@ export function TafsirView() {
                   </button>
                 </div>
 
-                {/* نص الآية */}
-                <p className="font-amiri text-2xl sm:text-3xl leading-loose text-foreground text-right mb-4">
-                  {ayah.text}
-                </p>
+                {/* نص الآية - بأسلوب المصحف */}
+                <div className="mushaf-page p-4 sm:p-6 mb-4 relative">
+                  <span className="corner-tl" />
+                  <span className="corner-br" />
+                  <p className="mushaf-text text-center" style={{ fontSize: "1.4rem", lineHeight: "2.4" }}>
+                    {ayah.text}
+                    <span className="ayah-number">{ayah.numberInSurah}</span>
+                  </p>
+                </div>
 
                 <div className="gold-divider" />
 

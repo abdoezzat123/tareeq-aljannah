@@ -437,38 +437,87 @@ export function QuranReader() {
           </div>
         </div>
       ) : surahData ? (
-        <div className="glass rounded-2xl p-5 sm:p-8">
+        <div className="mushaf-page p-6 sm:p-10 relative">
+          {/* زخارف الزوايا */}
+          <span className="corner-tl" />
+          <span className="corner-br" />
+
+          {/* رأس السورة */}
+          <div className="surah-header">
+            <div className="text-xs text-amber-800/70 mb-2">سورة رقم {selectedSurah?.number}</div>
+            <h2 className="surah-name-mushaf">
+              {selectedSurah?.name}
+            </h2>
+            <div className="text-xs text-amber-900/60 mt-2">
+              {selectedSurah?.englishName} • {selectedSurah?.numberOfAyahs} آية • {selectedSurah?.revelationType === "Meccan" ? "مكية" : "مدنية"}
+            </div>
+          </div>
+
           {/* البسملة */}
           {selectedSurah?.number !== 1 && selectedSurah?.number !== 9 && (
-            <div className="text-center mb-6 pb-6 border-b border-gold/15">
-              <p className="font-amiri text-3xl sm:text-4xl gold-gradient-text">
-                بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ
-              </p>
-            </div>
+            <p className="basmala">
+              بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ
+            </p>
           )}
 
           {/* الآيات */}
-          <div className="space-y-4">
-            <p className="font-amiri text-2xl sm:text-3xl leading-loose text-foreground text-right">
-              {surahData.ayahs.map((ayah, idx) => (
+          <p className="mushaf-text">
+            {surahData.ayahs.map((ayah, idx) => {
+              const bookmarkKey = `${selectedSurah?.number}-${ayah.numberInSurah}`;
+              const isBookmarked = bookmarkedAyahs.has(bookmarkKey);
+              const isCurrent = currentAyah === idx;
+              return (
                 <span
                   key={ayah.numberInSurah}
                   id={`ayah-${idx}`}
                   onClick={() => playAyah(idx)}
                   className={cn(
-                    "cursor-pointer transition-all rounded-md px-1",
-                    currentAyah === idx
-                      ? "bg-gold/20 text-gold gold-glow"
-                      : "hover:bg-gold/5"
+                    "cursor-pointer transition-all",
+                    isCurrent && "ayah-active",
+                    isBookmarked && !isCurrent && "ayah-bookmarked"
                   )}
                 >
-                  {ayah.text}{" "}
-                  <span className="inline-flex items-center justify-center w-8 h-8 mx-1 text-sm font-bold text-gold bg-gold/10 rounded-full border border-gold/30">
+                  {ayah.text}
+                  <span
+                    className={cn(
+                      "ayah-number",
+                      isBookmarked && "ring-2 ring-emerald-500/50"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newSet = new Set(bookmarkedAyahs);
+                      if (isBookmarked) {
+                        newSet.delete(bookmarkKey);
+                        toast.info("تم إزالة العلامة");
+                      } else {
+                        newSet.add(bookmarkKey);
+                        toast.success(`علامة على الآية ${ayah.numberInSurah}`, {
+                          description: "تقدر ترجعلها من قسم العلامات",
+                        });
+                      }
+                      setBookmarkedAyahs(newSet);
+                      localStorage.setItem("tareeq-islam_ayah-bookmarks", JSON.stringify([...newSet]));
+                      fetchCurrentUser().then((u) => {
+                        if (u) {
+                          toggleBookmarkAPI(selectedSurah?.number || 0, ayah.numberInSurah, selectedSurah?.name || "", !isBookmarked);
+                        }
+                      });
+                    }}
+                    title={isBookmarked ? "إزالة العلامة" : "وضع علامة"}
+                  >
                     {ayah.numberInSurah}
-                  </span>{" "}
+                  </span>
                 </span>
-              ))}
-            </p>
+              );
+            })}
+          </p>
+
+          {/* فاصل نهاية السورة */}
+          <div className="mushaf-divider">
+            ۞ ۞ ۞
+          </div>
+          <div className="text-center text-sm text-amber-900/70 mt-4">
+            صدق الله العظيم
           </div>
         </div>
       ) : (
