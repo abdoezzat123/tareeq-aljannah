@@ -174,6 +174,30 @@ export function TasbihCounter() {
     toast.info("تم إعادة العدّاد");
   };
 
+  // مسح العدادات بس (يرجعها لـ 0) مع الاحتفاظ بسجل اليوم
+  const resetAllCounts = () => {
+    if (typeof window === "undefined") return;
+    if (!confirm("هل تريد إعادة تعيين كل العدادات؟ سجل اليوم هيفضل محفوظ.")) return;
+
+    // تحديث سجل اليوم - تصفير العدادات بس
+    const history = getTasbihHistory();
+    const todayKey = getTodayKey();
+    const todayRecord = history.find((r) => r.date === todayKey);
+
+    if (todayRecord) {
+      todayRecord.counts = {};
+      todayRecord.total = 0;
+      localStorage.setItem("tareeq-islam_tasbih_history", JSON.stringify(history));
+    }
+
+    // إعادة تعيين الـ state
+    setCount(0);
+    setRound(0);
+    setCompletedIds(new Set());
+
+    toast.success("تم إعادة تعيين العدادات 🔄 - سجل اليوم محفوظ");
+  };
+
   const today = getTodayTasbih();
   const totalToday = today?.total || 0;
   const goalProgress = Math.min((totalToday / dailyGoal) * 100, 100);
@@ -371,6 +395,15 @@ export function TasbihCounter() {
         >
           <RotateCcw className="w-4 h-4" />
           إعادة العدّاد
+        </button>
+
+        <button
+          onClick={resetAllCounts}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl glass hover:glass-gold transition-all text-sm font-medium"
+          title="إعادة تعيين كل العدادات - سجل اليوم هيفضل محفوظ"
+        >
+          <RotateCcw className="w-4 h-4" />
+          تصفير العدادات
         </button>
 
         <button
