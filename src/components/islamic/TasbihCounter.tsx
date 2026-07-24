@@ -174,28 +174,17 @@ export function TasbihCounter() {
     toast.info("تم إعادة العدّاد");
   };
 
-  // مسح العدادات بس (يرجعها لـ 0) مع الاحتفاظ بسجل اليوم
+  // تصفير العدادات بس - السجل بيفضل محفوظ بالكامل
   const resetAllCounts = () => {
     if (typeof window === "undefined") return;
-    if (!confirm("هل تريد إعادة تعيين كل العدادات؟ سجل اليوم هيفضل محفوظ.")) return;
+    if (!confirm("هل تريد تصفير العدادات؟ السجل هيفضل محفوظ بالكامل.")) return;
 
-    // تحديث سجل اليوم - تصفير العدادات بس
-    const history = getTasbihHistory();
-    const todayKey = getTodayKey();
-    const todayRecord = history.find((r) => r.date === todayKey);
-
-    if (todayRecord) {
-      todayRecord.counts = {};
-      todayRecord.total = 0;
-      localStorage.setItem("tareeq-islam_tasbih_history", JSON.stringify(history));
-    }
-
-    // إعادة تعيين الـ state
+    // إعادة تعيين الـ state فقط - السجل مش بيتمسح
     setCount(0);
     setRound(0);
     setCompletedIds(new Set());
 
-    toast.success("تم إعادة تعيين العدادات 🔄 - سجل اليوم محفوظ");
+    toast.success("تم تصفير العدادات 🔄 - السجل محفوظ بالكامل");
   };
 
   const today = getTodayTasbih();
